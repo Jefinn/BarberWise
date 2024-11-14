@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cadastro</title>
+    <!--CSS-->
+    <link
+      rel="shortcut icon"
+      href="/app/static/logo barber wise sem_fundo.png"
+      type="image/x-icon"
+    />
+    <link rel="stylesheet" href="/app//static/cadastro.css" />
+  </head>
+  <body>
+    <main>
+      <img
+        class="logo"
+        src="/app/static/logo barber wise sem_fundo.png"
+        alt="logo barber wise sem_fundo"
+      />
+      <section>
+        <h2>Bem-Vindo</h2>
+        <div class="container">
+          <form action="" method="post">
+            <label for="name">Nome</label>
+            <input type="text" id="name" />
+            <hr />
+            <label for="E-mail">E-mail</label>
+            <input type="email" id="email" />
+            <hr />
+            <label for="perfil">Escolha seu perfil</label>
+            <input list="browsers" name="browser" id="browser" />
+            <hr />
+            <datalist id="browsers">
+              <option value="Barbeiro"></option>
+              <option value="Cliente"></option>
+            </datalist>
+            <label for="password">Senha</label>
+            <input type="password" name="password" id="senha" />
+            <hr />
+            <label for="password">Confirma Senha</label>
+            <input type="password" name="password" id="senha" />
+            <hr />
+            <button class="btn" type="submit">Cadastrar</button>
+          </form>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

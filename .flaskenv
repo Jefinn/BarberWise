@@ -1,0 +1,2 @@
+FLASK_APP=barberwise.py
+FLASK_ENV=development
