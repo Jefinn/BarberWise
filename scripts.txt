@@ -1,0 +1,5 @@
+----------------------------------------------------------------------------
+AQUI IRÁ CONTER SCRIT O CODIGOS PARA EXECUTAR FUNÇÕES OU COMANDOS IMPORTANTE
+----------------------------------------------------------------------------
+Comando Flask para executar debug e start um servidor local
+flask --app barberwise --debug run

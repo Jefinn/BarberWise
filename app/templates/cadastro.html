@@ -1,51 +1,75 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cadastro</title>
-    <!--CSS-->
-    <link
-      rel="shortcut icon"
-      href="{{ url_for('static', filename='logo barber wise sem_fundo.png') }}"
-      type="image/x-icon"
-    />
-    <link rel="stylesheet" href="{{ url_for('static', filename='cadastro.css') }}" />
-  </head>
-  <body>
-    <main>
-      <img
-        class="logo"
-        src="{{ url_for('static', filename='logo barber wise sem_fundo.png') }}"
-        alt="logo barber wise sem_fundo"
-      />
-      <section>
-        <h2>Bem-Vindo</h2>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cadastro</title>
+  <!--CSS-->
+  <link rel="shortcut icon" href="{{ url_for('static', filename='css/img/logo barber wise sem_fundo.png') }}"
+    type="image/x-icon" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadastro.css') }}" />
+
+  <script>
+    //Função para mostrar/esconder os campos de cadastro de barbeiro
+    function toggleBarberOptions() {
+      var tipo_user = document.getElementById("tipo_user").value;
+      var barberOptions = document.getElementById("barberOptions");
+      if (tipo_user === "barbeiro") {
+        barberOptions.style.display = "block";
+      } else {
+        barberOptions.style.display = "none";
+      }
+    }
+  </script>
+
+</head>
+
+<body>
+  <main>
+    <section>
+      <div class="container_form">
+        <img class="logo" src="{{ url_for('static', filename='css/img/logo barber wise sem_fundo.png') }}"
+          alt="logo barber wise sem_fundo" />
         <div class="container">
-          <form action="" method="post">
-            <label for="name">Nome</label>
-            <input type="text" id="name" name="name" />
-            <hr />
+          <form action="/cadastrar" id="cadastro" method="POST">
+            <h2>Cadastre-se</h2>
+            <label for="nome">Nome</label>
+            <input type="text" id="nome" name="nome" />
+
             <label for="email">E-mail</label>
             <input type="email" id="email" name="email" />
-            <hr />
-            <label for="perfil">Escolha seu perfil</label>
-            <input list="browsers" name="browser" id="browser" />
-            <hr />
-            <datalist id="browsers">
-              <option value="Barbeiro"></option>
-              <option value="Cliente"></option>
-            </datalist>
-            <label for="password">Senha</label>
-            <input type="password" name="password" id="senha" />
-            <hr />
-            <label for="password_confirm">Confirma Senha</label>
-            <input type="password" name="password_confirm" id="senha_confirm" />
-            <hr />
+
+            <label for="tipo_user">Tipo de Perfil:</label>
+            <select id="tipo_user" name="tipo_user" onchange="toggleBarberOptions()" required>
+              <option value="">Selecione</option>
+              <option value="cliente">Cliente</option>
+              <option value="barbeiro">Barbeiro</option>
+            </select>
+
+            <!-- Campos de cadastro de barbeiro -->
+            <div id="barberOptions" class="barber-options">
+              <label for="barberLocation">Localidade da Barbearia:</label>
+              <input type="text" id="localidade" name="localidade"><br><br>
+            </div>
+
+            <label for="telefone">Telefone</label>
+            <input type="text" id="telefone" name="telefone" />
+
+            <label for="senha">Senha</label>
+            <input type="password" name="senha" id="senha" />
+
+            <label for="confirma_senha">Confirma Senha</label>
+            <input type="password" name="confirma_senha" id="confirma_senha" />
+
             <button class="btn" type="submit">Cadastrar</button>
           </form>
         </div>
-      </section>
-    </main>
-  </body>
+      </div>
+    </section>
+  </main>
+
+  <script rel="stylesheet" href="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+
 </html>
