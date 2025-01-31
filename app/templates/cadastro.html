@@ -9,6 +9,7 @@
   <link rel="shortcut icon" href="{{ url_for('static', filename='css/img/logo barber wise sem_fundo.png') }}"
     type="image/x-icon" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadastro.css') }}" />
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <script>
     //Função para mostrar/esconder os campos de cadastro de barbeiro
@@ -69,7 +70,27 @@
     </section>
   </main>
 
-  <script rel="stylesheet" href="{{ url_for('static', filename='js/script.js') }}"></script>
+  <script>
+    const mensagemErro = "{{ mensagem_erro }}";  // Variável passada pelo Flask
+    if (mensagemErro) {
+      Swal.fire({
+        title: 'Erro!',
+        text: mensagemErro,
+        icon: 'error',
+        confirmButtonText: 'Tentar Novamente'
+      });
+    }
+
+    const mensagemSucesso = "{{ mensagem_sucesso }}";  // Variável passada pelo Flask
+    if (mensagemSucesso) {
+      Swal.fire({
+        title: 'Sucesso!',
+        text: mensagemSucesso,
+        icon: 'success',
+        confirmButtonText: 'Ok'
+      });
+    }
+  </script>
 </body>
 
 </html>

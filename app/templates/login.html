@@ -4,9 +4,11 @@
 <head>
     <title>Barber Wise</title>
     <!--CSS-->
-    <link rel="shortcut icon" href="{{ url_for('static', filename='logo barber wise sem_fundo.png') }}"
+    <link rel="shortcut icon"
+        href="{{ url_for('static', filename='css/img/logo barber wise sem_fundo_letra_branca.png') }}"
         type="image/x-icon" />
     <link rel="stylesheet" href="{{url_for('static', filename='css/login.css')}}">
+    <!--Biblioteca SweetAlert-->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
@@ -56,7 +58,7 @@
             </form>
         </div>
     </div>
-    </div>
+
 
     <script>
         const mensagemErro = "{{ mensagem_erro }}";  // Variável passada pelo Flask
@@ -66,6 +68,16 @@
                 text: mensagemErro,
                 icon: 'error',
                 confirmButtonText: 'Tentar Novamente'
+            });
+        }
+
+        const mensagemSucesso = "{{ mensagem_sucesso }}";  // Variável passada pelo Flask
+        if (mensagemSucesso) {
+            Swal.fire({
+                title: 'Sucesso!',
+                text: mensagemSucesso,
+                icon: 'success',
+                confirmButtonText: 'Ok'
             });
         }
     </script>

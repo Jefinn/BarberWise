@@ -67,7 +67,7 @@ select #profileType {
 }
 
 
-#barberOptions{
+#barberOptions {
   width: auto;
   height: 60px;
 }
@@ -107,4 +107,50 @@ form .btn {
 
 .btn:hover {
   background-position: right;
+}
+
+@media (max-width: 768px) {
+  form {
+    width: 300px;
+  }
+
+  form label,
+  form input,
+  select #profileType {
+    width: 250px;
+    margin: 10px 20px;
+  }
+
+  form .btn {
+    width: 200px;
+  }
+}
+
+@media (max-width: 425px) {
+  form {
+    width: 250px;
+    margin-left: 10px;
+  }
+
+  section .container_form {
+    display: block;
+    margin: 45px;
+  }
+
+  form label,
+  form input,
+  select #profileType {
+    width: 200px;
+    margin: 10px 20px;
+  }
+
+  form .btn {
+    width: 150px;
+  }
+}
+
+@media (max-width: 375px) {
+  section .container_form {
+    margin: 20px;
+  }
 }

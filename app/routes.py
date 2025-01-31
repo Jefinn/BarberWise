@@ -1,6 +1,8 @@
 from app import app
-from flask import Flask, render_template, request # type: ignore 
+from flask import Flask, render_template, request, url_for, redirect, session, jsonify # type: ignore 
+from functools import wraps
 import mysql.connector # type: ignore
+from datetime import datetime
 
 # Configurações da conexão
 config = {
@@ -10,7 +12,7 @@ config = {
     'database': 'barberwise'
 }
 
-# Conectando ao banco
+# Test de conecta ao banco
 try:
     connection = mysql.connector.connect(**config)
     print("Conexão bem-sucedida!")
@@ -20,7 +22,16 @@ finally:
     if connection.is_connected():
         connection.close()
 
-#Etapas de login
+#Requisição de login
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_logged_in' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+#Rota de login
 @app.route('/')
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -36,26 +47,36 @@ def login():
         cursor = connection.cursor()
 
         try:
-            # Consulta no banco
-            sql = "SELECT * FROM clientes WHERE email = %s AND senha = %s"
+            # Consulta na tabela de clientes
+            sql_cliente = "SELECT * FROM clientes WHERE email = %s AND senha = %s"
             valores = (email, senha)
-            cursor.execute(sql, valores)
-            usuario = cursor.fetchone()
+            cursor.execute(sql_cliente, valores)
+            usuarioCliente = cursor.fetchone()
 
-            if usuario:
-                # Usuário encontrado
-                return render_template('page_clientes.html', usuario=usuario)
-            else:
-                # Usuário ou senha inválidos
-                return render_template('login.html', mensagem_erro="Usuário ou senha inválidos!")
+            if usuarioCliente:
+                session['user_logged_in'] = True
+                return redirect(url_for('painelCliente'))
+
+            # Consulta na tabela de barbeiros
+            sql_barbeiro = "SELECT * FROM barbeiro WHERE email = %s AND senha = %s"
+            cursor.execute(sql_barbeiro, valores)
+            usuarioBarbeiro = cursor.fetchone()
+
+            if usuarioBarbeiro:
+                session['user_logged_in'] = True
+                return redirect(url_for('painelBarbeiro'))
+            
+            # Se nenhum usuário foi encontrado
+            return render_template('login.html', mensagem_erro="Usuário ou senha inválidos!")
+        
         except Exception as e:
             return f"Erro ao acessar banco de dados: {e}"
         finally:
             cursor.close()
             connection.close()
-    else:
-        # Para requisições GET, renderiza a página de login
-        return render_template('login.html')
+
+    # Para requisições GET, renderiza a página de login
+    return render_template('login.html')
 
 
 #Etapas de cadastro
@@ -64,34 +85,54 @@ def cadastro():
     return render_template('cadastro.html')
 
 
-@app.route('/cadastrar',  methods=['POST'])
+# Cadastro de usuário
+@app.route('/cadastrar', methods=['POST'])
 def cadastrar():
-    nome = request.form['nome']
-    email = request.form['email']
-    tipo_user = request.form['tipo_user']
+    tipo_user = request.form.get('tipo_user')
+    
+    if not tipo_user:
+        return render_template('cadastro.html', mensagem_erro="O tipo de usuário não foi informado!")
+    
+    tipo_user = tipo_user.strip().lower()  # Normaliza o valor
+    print(f"Tipo de usuário normalizado: '{tipo_user}'")  # Para depuração
 
+    nome = request.form.get('nome')
+    email = request.form.get('email')
+    
+    # Verifica se o tipo de usuário é 'barbeiro'
     if tipo_user == 'barbeiro':
-        localidade = request.form['localidade']
-        telefone = request.form['telefone']
-        senha = request.form['senha']
-        confirma_senha = request.form['confirma_senha']
+        localidade = request.form.get('localidade')
+        telefone = request.form.get('telefone')
+        senha = request.form.get('senha')
+        confirma_senha = request.form.get('confirma_senha')
 
+        # Verifica se as senhas coincidem
         if senha != confirma_senha:
-            return "As senhas não coincidem!"
+            print("As senhas não coincidem!")
+            return render_template('cadastro.html', mensagem_erro="As senhas não coincidem!")
 
         # Conexão com o banco
         connection = mysql.connector.connect(**config)
         cursor = connection.cursor()
 
         try:
-            # Inserção no banco
+            sql = "SELECT * FROM barbeiro WHERE email = %s"
+            cursor.execute(sql, (email,))
+            barbeiro = cursor.fetchone()
+            if barbeiro:
+                return render_template('cadastro.html', mensagem_erro="Barbeiro já cadastrado!")
+            else:
+                print("Barbeiro não cadastrado!")
+                
+            # Inserção no banco (barbeiro)
             sql = "INSERT INTO barbeiro (nome, email, tipo_user, localidade, telefone, senha ) VALUES (%s, %s, %s, %s, %s, %s)"
             valores = (nome, email, tipo_user, localidade, telefone, senha)
             cursor.execute(sql, valores)
             connection.commit()
-            print("Usuário cadastrado com sucesso!")
-            return "Usuário cadastrado com sucesso!"
-           
+            
+            print("Barbeiro cadastrado com sucesso!")
+            return render_template('login.html', mensagem_sucesso="Usuário barbeiro cadastrado com sucesso!")
+        
         except Exception as e:
             connection.rollback()
             return f"Erro: {e}"
@@ -99,30 +140,172 @@ def cadastrar():
             cursor.close()
             connection.close()
 
-    if tipo_user == 'cliente':
-        telefone = request.form['telefone']
-        senha = request.form['senha']
-        confirma_senha = request.form['confirma_senha']
+    # Verifica se o tipo de usuário é 'cliente'
+    elif tipo_user == 'cliente':
+        telefone = request.form.get('telefone')
+        senha = request.form.get('senha')
+        confirma_senha = request.form.get('confirma_senha')
 
+        # Verifica se as senhas coincidem
         if senha != confirma_senha:
-            return "As senhas não coincidem!" 
+            print("As senhas não coincidem!")
+            return render_template('cadastro.html', mensagem_erro="As senhas não coincidem!")
 
         # Conexão com o banco
         connection = mysql.connector.connect(**config)
         cursor = connection.cursor()
 
         try:
-            # Inserção no banco
+            sql = "SELECT * FROM clientes WHERE email = %s"
+            cursor.execute(sql,(email,))
+            cliente = cursor.fetchone()
+            if cliente:
+                return render_template('cadastro.html', mensagem_erro="Cliente já cadastrado!")
+            else:
+                print("Cliente não cadastrado!")
+                
+            # Inserção no banco (clientes)
             sql = "INSERT INTO clientes (nome, email, tipo_user, telefone, senha) VALUES (%s, %s, %s, %s, %s)"
             valores = (nome, email, tipo_user, telefone, senha)
             cursor.execute(sql, valores)
             connection.commit()
-            return "Usuário cadastrado com sucesso!"
+            
+            print("Cliente cadastrado com sucesso!")
+            return render_template('login.html', mensagem_sucesso="Usuário cliente cadastrado com sucesso!")
+        
         except Exception as e:
             connection.rollback()
-            return f"Erro: {e}"
+            return render_template('cadastro.html', mensagem_erro=f"Erro ao cadastrar usuário: {e}")
+        
         finally:
             cursor.close()
             connection.close()
+
+    # Caso o tipo de usuário não seja válido
     else:
-        return "Tipo de usuário inválido!"
+        print(f"Tipo de usuário inválido: '{tipo_user}'")  # Para depuração
+        return render_template('cadastro.html', mensagem_erro="Tipo de usuário inválido!")
+
+
+#Painel do cliente
+@app.route('/painelCliente')
+@login_required
+def painelCliente():
+    return render_template('painelCliente.html')
+
+#Rota de Barbearia selecionada
+@app.route('/get_barbers', methods=['GET'])
+def get_barbers():
+    try:
+        connection = mysql.connector.connect(**config)
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("SELECT id, nome AS name FROM barbeiro")
+        barbers = cursor.fetchall()
+        return jsonify(barbers)
+    except Exception as e:
+        print(f"Erro ao buscar barbearias: {e}")
+        return jsonify([]), 500
+    finally:
+        cursor.close()
+        connection.close()
+
+
+#Rota de confirmação de agendamento
+@app.route('/confirm_agd', methods=['POST'])
+def confirm_agd():
+    try:
+        barber_id = request.form.get('barber_id')
+        data = request.form.get('data')
+        horario_agd = request.form.get('horario_agd')  # Corrigido: pegar 'tempo' do frontend
+
+        print(f"Recebido - Barber ID: {barber_id}, Data: {data}, Horário: {horario_agd}")
+
+        if not barber_id or not data or not horario_agd:
+            return jsonify({'status': 'error', 'message': 'Dados incompletos!'}), 400
+
+        try:
+            data = datetime.strptime(data, '%Y-%m-%d').strftime('%Y-%m-%d') # Formato YYYY-MM-DD já está correto
+        except ValueError:
+            return jsonify({'status': 'error', 'message': 'Formato de data inválido! Use YYYY-MM-DD.'}), 400
+
+        try:
+            horario_agd = datetime.strptime(horario_agd, '%H:%M').strftime('%H:%M:%S')
+            print(f"Formato de horário convertido: {horario_agd}")
+        except ValueError:
+            return jsonify({'status': 'error', 'message': 'Formato de horario_agd inválido! Use HH:MM.'}), 400
+
+        connection = mysql.connector.connect(**config)
+        cursor = connection.cursor()
+
+        # ... (restante do código do banco de dados) ...
+
+        cursor.execute(
+            "INSERT INTO agendamentos_barberwise (barber_id, data, horario_agd) VALUES (%s, %s, %s)",
+            (barber_id, data, horario_agd)
+        )
+        connection.commit()
+
+        return jsonify({'status': 'success', 'message': 'Agendamento confirmado!'})
+
+    except mysql.connector.Error as err:
+        print("Erro MySQL:", err)
+        return jsonify({'status': 'error', 'message': f'Erro ao confirmar agendamento no MySQL: {err}'}), 500
+
+    except Exception as e:
+        print("Erro Geral:", e)
+        return jsonify({'status': 'error', 'message': f'Erro inesperado: {e}'}), 500
+
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'connection' in locals():
+            connection.close()
+
+
+@app.route('/get_agendamentos', methods=['GET'])
+def get_agendamentos():
+    try:
+        data = request.args.get('data')  # Data recebida no formato YYYY-MM-DD
+        barber_id = request.args.get('barber_id')  # Barber ID, caso precise filtrar por barbeiro
+
+        if not data:
+            return jsonify({'status': 'error', 'message': 'Data não fornecida!'}), 400
+
+        connection = mysql.connector.connect(**config)
+        cursor = connection.cursor()
+
+        # Consulta SQL para pegar os horários agendados
+        query = "SELECT horario_agd FROM agendamentos_barberwise WHERE data = %s"
+        params = [data]
+        
+        if barber_id:
+            query += " AND barber_id = %s"
+            params.append(barber_id)
+
+        cursor.execute(query, tuple(params))
+        agendamentos = cursor.fetchall()
+
+        horarios_agendados = [row[0] for row in agendamentos]  # Extraindo os horários
+
+        return jsonify({'status': 'success', 'horarios': horarios_agendados})
+
+    except mysql.connector.Error as err:
+        print("Erro MySQL:", err)
+        return jsonify({'status': 'error', 'message': f'Erro ao buscar agendamentos no MySQL: {err}'}), 500
+
+    except Exception as e:
+        print("Erro Geral:", e)
+        return jsonify({'status': 'error', 'message': f'Erro inesperado: {e}'}), 500
+
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'connection' in locals():
+            connection.close()
+
+            
+#Painel do barbeiro
+@app.route('/painelBarbeiro')
+@login_required
+def painelBarbeiro():
+    return render_template('painelBarbeiro.html')

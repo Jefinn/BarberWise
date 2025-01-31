@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel do Barbeiro</title>
+    <link rel="shortcut icon" href="{{ url_for('static', filename='logo barber wise sem_fundo.png') }}"
+        type="image/x-icon" />
+    <link rel="stylesheet" href="{{url_for('static', filename='css/painelCliente.css')}}">
+    <!-- Bootstrap CSS e JS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+        crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <!--Biblioteca SweetAlert-->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+
+<body>
+    <div class="main">
+        <!--Navegação-->
+        <nav class="top-nav">
+            <div class="container_logo">
+                <img src="{{url_for('static', filename='css/img/logo barber wise sem_fundo_letra_branca.png')}}"
+                    alt="Logo Barber Wise">
+            </div>
+            <div class="titulo">
+                <h2>Barber Wise</h2>
+            </div>
+            <input id="menu-toggle" type="checkbox" />
+            <label class='menu-button-container' for="menu-toggle">
+                <div class='menu-button'></div>
+            </label>
+            <ul class="menu">
+                <li>Sobre</li>
+                <li>Serviço</li>
+                <li>Contato</li>
+            </ul>
+        </nav>
+        <!--Fim da navegação-->
+
+        <!--Container do calendário-->
+        <div id="container_caledary">
+            <div class="calendar">
+                <div class="calendar-header">
+                    <button id="prevMonth">&lt;</button>
+                    <div id="monthYear"></div>
+                    <button id="nextMonth">&gt;</button>
+                </div>
+                <div class="calendar-body">
+                    <div class="calendar-weekdays">
+                        <div>Segunda</div>
+                        <div>Terça</div>
+                        <div>Quarta</div>
+                        <div>Quinta</div>
+                        <div>Sexta</div>
+                        <div>Sábado</div>
+                        <div>Domingo</div>
+                    </div>
+                    <div class="calendar-days" id="calendarDays"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal do Bootstrap para informações do cliente -->
+        <div class="modal fade" id="customerInfoModal" tabindex="-1" aria-labelledby="customerInfoModalLabel"
+            aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="customerInfoModalLabel">Informações do Cliente</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="customerName" class="form-label"><i class="bi bi-person-fill"></i> Nome</label>
+                            <input type="text" class="form-control" id="customerName" disabled>
+                        </div>
+                        <div class="mb-3">
+                            <label for="customerPhone" class="form-label"><i class="bi bi-telephone-fill"></i>
+                                Telefone</label>
+                            <input type="text" class="form-control" id="customerPhone" disabled>
+                        </div>
+                        <div class="mb-3">
+                            <label for="customerEmail" class="form-label"><i class="bi bi-envelope-fill"></i>
+                                E-mail</label>
+                            <input type="email" class="form-control" id="customerEmail" disabled>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal do Bootstrap para selecionar horário -->
+        <div class="modal fade" id="timeModal" tabindex="-1" aria-labelledby="timeModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="timeModalLabel">Selecione um horário</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Horários disponíveis -->
+                        <div id="timeOptions" class="d-flex flex-wrap gap-2"></div>
+
+                        <!-- Seleção de Barbearia -->
+                        <div id="barber-selection" class="mt-4" style="display: none;">
+                            <label for="barberSelect" class="form-label">Selecione a Barbearia:</label>
+                            <select id="barberSelect" class="form-select"></select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="confirmTime" class="btn btn-primary" disabled>Confirmar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!--Scripts-->
+    <script>
+        const calendarDays = document.getElementById('calendarDays');
+        const monthYear = document.getElementById('monthYear');
+        const prevMonth = document.getElementById('prevMonth');
+        const nextMonth = document.getElementById('nextMonth');
+        const confirmTime = document.getElementById('confirmTime');
+        const timeOptions = document.getElementById('timeOptions');
+        const timeModal = new bootstrap.Modal(document.getElementById('timeModal'));
+        const customerInfoModal = new bootstrap.Modal(document.getElementById('customerInfoModal'));
+        let selectedDate = null;
+        let selectedTime = null;
+        let selectedCustomer = null;
+
+        const months = [
+            'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+            'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+        ];
+
+        let date = new Date();
+
+        // Função para renderizar o calendário
+        function renderCalendar() {
+            calendarDays.innerHTML = '';
+            const month = date.getMonth();
+            const year = date.getFullYear();
+            monthYear.innerText = `${months[month]} ${year}`;
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const lastDate = new Date(year, month + 1, 0).getDate();
+
+            // Adiciona dias vazios no início
+            for (let i = 0; i < (firstDay || 7) - 1; i++) {
+                calendarDays.innerHTML += `<div class="empty"></div>`;
+            }
+
+            // Adiciona os dias do mês
+            for (let i = 1; i <= lastDate; i++) {
+                const dayElement = document.createElement('div');
+                dayElement.className = 'day';
+                dayElement.innerText = i;
+
+                if (selectedDate === `${i}/${month + 1}/${year}`) {
+                    dayElement.classList.add('selected');
+                }
+
+                dayElement.addEventListener('click', function () {
+                    selectedDate = `${i}/${month + 1}/${year}`;
+                    document.querySelectorAll('.day').forEach(day => day.classList.remove('selected'));
+                    dayElement.classList.add('selected');
+                    renderTimeOptions(); // Agora, chama a função para renderizar os horários
+                    timeModal.show(); // Mostra o modal de horários
+                });
+
+                calendarDays.appendChild(dayElement);
+            }
+        }
+
+        // Função para renderizar as opções de horário
+        function renderTimeOptions() {
+            timeOptions.innerHTML = ''; // Limpa os horários antes de renderizar
+
+            const selectedDateFormatted = formatDateForAPI(selectedDate); // Formata a data para o formato correto (YYYY-MM-DD)
+
+            // Requisição AJAX para obter os horários agendados
+            $.ajax({
+                url: '/get_agendamentos',
+                method: 'GET',
+                data: { data: selectedDateFormatted }, // Envia a data para a rota do backend
+                success: function (response) {
+                    if (response.status === 'success') {
+                        const horariosAgendados = response.horarios;
+
+                        const allTimes = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+
+                        // Exibe os horários, desabilitando os já agendados
+                        allTimes.forEach(time => {
+                            const timeButton = document.createElement('button');
+                            timeButton.innerText = time;
+                            timeButton.className = 'btn btn-outline-primary';
+
+                            // Se o horário já estiver agendado, desabilita o botão
+                            if (horariosAgendados.includes(time)) {
+                                timeButton.disabled = true;
+                            } else {
+                                timeButton.addEventListener('click', () => {
+                                    selectedTime = time;
+                                    confirmTime.disabled = false;
+                                    hideTimeModal(); // Esconde o modal de horários
+                                    fetchCustomerInfo(); // Carrega as informações do cliente
+                                });
+                            }
+
+                            timeOptions.appendChild(timeButton);
+                        });
+                    } else {
+                        Swal.fire('Erro', response.message, 'error');
+                    }
+                },
+                error: function () {
+                    Swal.fire('Erro', 'Não foi possível carregar os horários agendados.', 'error');
+                }
+            });
+        }
+
+        // Função para formatar a data no formato correto para a API (YYYY-MM-DD)
+        function formatDateForAPI(date) {
+            const [day, month, year] = date.split('/');
+            return `${year}-${month}-${day}`; // Retorna no formato YYYY-MM-DD
+        }
+
+        // Função para esconder o modal de horários
+        function hideTimeModal() {
+            document.querySelector('#timeOptions').style.display = 'none'; // Esconde as opções de horário
+            document.querySelector('#barber-selection').style.display = 'none'; // Esconde a seleção de barbeiro, se aplicável
+            timeModal.hide(); // Fecha o modal
+        }
+
+        // Função para carregar informações do cliente (simulação)
+        function fetchCustomerInfo() {
+            // Aqui você pode fazer uma requisição AJAX para obter os dados do cliente
+            selectedCustomer = {
+                name: "João Silva",
+                phone: "(11) 99999-9999",
+                email: "joao@email.com"
+            };
+
+            // Exibir as informações no modal
+            $('#customerName').val(selectedCustomer.name);
+            $('#customerPhone').val(selectedCustomer.phone);
+            $('#customerEmail').val(selectedCustomer.email);
+
+            customerInfoModal.show(); // Exibe o modal com as informações do cliente
+        }
+
+        // Função para navegar entre os meses
+        prevMonth.addEventListener('click', () => {
+            date.setMonth(date.getMonth() - 1);
+            renderCalendar(); // Renderiza o calendário do mês anterior
+        });
+
+        nextMonth.addEventListener('click', () => {
+            date.setMonth(date.getMonth() + 1);
+            renderCalendar(); // Renderiza o calendário do próximo mês
+        });
+
+        // Renderiza o calendário inicial
+        renderCalendar();
+
+    </script>
+
+</body>
+
+</html>
