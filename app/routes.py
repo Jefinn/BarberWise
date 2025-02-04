@@ -209,39 +209,55 @@ def get_barbers():
         cursor.close()
         connection.close()
 
-
-#Rota de confirmação de agendamento
 @app.route('/confirm_agd', methods=['POST'])
 def confirm_agd():
     try:
-        barber_id = request.form.get('barber_id')
+        cliente_id = request.form.get('cliente_id')
         data = request.form.get('data')
-        horario_agd = request.form.get('horario_agd')  # Corrigido: pegar 'tempo' do frontend
+        horario_agd = request.form.get('horario_agd')
 
-        print(f"Recebido - Barber ID: {barber_id}, Data: {data}, Horário: {horario_agd}")
+        print(f"Recebido - cliente_id: {cliente_id}, data: {data}, horario_agd: {horario_agd}")
 
-        if not barber_id or not data or not horario_agd:
+        if not cliente_id or not data or not horario_agd:
+            print("Dados incompletos!")
             return jsonify({'status': 'error', 'message': 'Dados incompletos!'}), 400
 
+        # Verificar se cliente_id é um número inteiro válido
+        if not cliente_id.isdigit():
+            print("cliente_id inválido!")
+            return jsonify({'status': 'error', 'message': 'cliente_id inválido!'}), 400
+        cliente_id = int(cliente_id)
+
         try:
-            data = datetime.strptime(data, '%Y-%m-%d').strftime('%Y-%m-%d') # Formato YYYY-MM-DD já está correto
+            data = datetime.strptime(data, '%Y-%m-%d').strftime('%Y-%m-%d')
         except ValueError:
+            print("Formato de data inválido!")
             return jsonify({'status': 'error', 'message': 'Formato de data inválido! Use YYYY-MM-DD.'}), 400
 
         try:
             horario_agd = datetime.strptime(horario_agd, '%H:%M').strftime('%H:%M:%S')
             print(f"Formato de horário convertido: {horario_agd}")
         except ValueError:
+            print("Formato de horário inválido!")
             return jsonify({'status': 'error', 'message': 'Formato de horario_agd inválido! Use HH:MM.'}), 400
 
         connection = mysql.connector.connect(**config)
         cursor = connection.cursor()
 
-        # ... (restante do código do banco de dados) ...
+        # Verificar se o cliente existe
+        cursor.execute("SELECT 1 FROM clientes WHERE id = %s", (cliente_id,))
+        if not cursor.fetchone():
+            return jsonify({'status': 'error', 'message': 'Cliente não encontrado!'}), 400
 
+        # Verifica se o horário já está agendado para a data
+        cursor.execute("SELECT 1 FROM agendamentos_barberwise WHERE data = %s AND horario_agd = %s", (data, horario_agd))
+        if cursor.fetchone():
+            return jsonify({'status': 'error', 'message': 'Horário já está agendado!'}), 400
+
+        # Inserir o novo agendamento, caso o horário esteja livre
         cursor.execute(
-            "INSERT INTO agendamentos_barberwise (barber_id, data, horario_agd) VALUES (%s, %s, %s)",
-            (barber_id, data, horario_agd)
+            "INSERT INTO agendamentos_barberwise (cliente_id, data, horario_agd) VALUES (%s, %s, %s)",
+            (cliente_id, data, horario_agd)
         )
         connection.commit()
 
@@ -260,38 +276,74 @@ def confirm_agd():
             cursor.close()
         if 'connection' in locals():
             connection.close()
+            
 
-
+#Rota de agendamentos do barbeiro
 @app.route('/get_agendamentos', methods=['GET'])
 def get_agendamentos():
     try:
-        data = request.args.get('data')  # Data recebida no formato YYYY-MM-DD
-        barber_id = request.args.get('barber_id')  # Barber ID, caso precise filtrar por barbeiro
+        barbeiro_id = request.args.get('barbeiro_id')
+        data = request.args.get('data')
 
-        if not data:
-            return jsonify({'status': 'error', 'message': 'Data não fornecida!'}), 400
+         # Adicione prints para verificar os parâmetros recebidos
+        print("barbeiro_id:", barbeiro_id)
+        print("data:", data)
+
+        if not barbeiro_id or not data:
+            return jsonify({'status': 'error', 'message': 'Barbeiro ID e Data são obrigatórios!'}), 400
 
         connection = mysql.connector.connect(**config)
-        cursor = connection.cursor()
+        cursor = connection.cursor(dictionary=True)
 
-        # Consulta SQL para pegar os horários agendados
-        query = "SELECT horario_agd FROM agendamentos_barberwise WHERE data = %s"
-        params = [data]
-        
-        if barber_id:
-            query += " AND barber_id = %s"
-            params.append(barber_id)
-
-        cursor.execute(query, tuple(params))
+        query = """
+        SELECT a.id, c.nome AS cliente_nome, c.telefone, c.email, a.horario_agd, a.status
+        FROM agendamentos_barberwise a
+        JOIN clientes c ON a.cliente_id = c.id
+        WHERE a.barbeiro_id = %s AND a.data = %s
+        ORDER BY a.horario_agd
+        """
+        cursor.execute(query, (barbeiro_id, data))
         agendamentos = cursor.fetchall()
 
-        horarios_agendados = [row[0] for row in agendamentos]  # Extraindo os horários
+        cursor.close()
+        connection.close()
 
-        return jsonify({'status': 'success', 'horarios': horarios_agendados})
+        return jsonify({'status': 'success', 'agendamentos': agendamentos})
 
     except mysql.connector.Error as err:
         print("Erro MySQL:", err)
         return jsonify({'status': 'error', 'message': f'Erro ao buscar agendamentos no MySQL: {err}'}), 500
+    except Exception as e:
+        print("Erro Geral:", e)
+        return jsonify({'status': 'error', 'message': f'Erro inesperado: {e}'}), 500
+
+
+
+#Rota de busca de cliente
+@app.route('/get_cliente', methods=['GET'])
+def get_cliente():
+    try:
+        cliente_id = request.args.get('cliente_id')  # Pega o ID do cliente da requisição
+        
+        if not cliente_id:
+            return jsonify({'status': 'error', 'message': 'Cliente ID não fornecido!'}), 400
+
+        connection = mysql.connector.connect(**config)
+        cursor = connection.cursor(dictionary=True)
+
+        # Consulta SQL para buscar os dados do cliente pelo ID
+        query = "SELECT nome, telefone, email FROM clientes WHERE id = %s"
+        cursor.execute(query, (cliente_id,))
+        cliente = cursor.fetchone()  # Obtém um único resultado
+
+        if cliente:
+            return jsonify({'status': 'success', 'data': cliente})
+        else:
+            return jsonify({'status': 'error', 'message': 'Cliente não encontrado!'}), 404
+
+    except mysql.connector.Error as err:
+        print("Erro MySQL:", err)
+        return jsonify({'status': 'error', 'message': f'Erro ao buscar cliente no MySQL: {err}'}), 500
 
     except Exception as e:
         print("Erro Geral:", e)
@@ -303,7 +355,7 @@ def get_agendamentos():
         if 'connection' in locals():
             connection.close()
 
-            
+                 
 #Painel do barbeiro
 @app.route('/painelBarbeiro')
 @login_required

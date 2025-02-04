@@ -164,7 +164,7 @@
             timeOptions.innerHTML = '';
             const times = scheduled[selectedDate] || [];
             const startHour = 9;
-            const endHour = 21;
+            const endHour = 22;
 
             for (let hour = startHour; hour <= endHour; hour++) {
                 const time = hour.toString().padStart(2, '0') + ':00';
@@ -194,9 +194,9 @@
         // Evento para o botão de confirmação
         confirmTime.addEventListener('click', () => {
             if (selectedDate && selectedTime) {
-                const barberId = $('#barberSelect').val(); // Obtém o ID do barbeiro selecionado
+                const clienteid = $('#barberSelect').val(); // Obtém o ID do barbeiro selecionado
 
-                if (!barberId) {
+                if (!clienteid) {
                     alert('Selecione um barbeiro antes de confirmar o agendamento!');
                     return;
                 }
@@ -206,13 +206,13 @@
                 const formattedDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
 
                 // Verifique no console se os dados estão corretos antes do envio
-                console.log('Enviando agendamento:', { barberId, formattedDate, selectedTime });
+                console.log('Enviando agendamento:', { clienteid, formattedDate, selectedTime });
 
                 $.ajax({
                     url: '/confirm_agd',  // Chama a rota Flask
                     method: 'POST',
                     data: {
-                        barber_id: barberId,
+                        cliente_id: clienteid,
                         data: formattedDate,  // Envia a data no formato correto
                         horario_agd: selectedTime  // Envia o horário selecionado
                     },
@@ -269,28 +269,6 @@
 
         // Renderiza o calendário inicial
         renderCalendar();
-
-
-        // Mensagens de erro e sucesso
-        const mensagemErro = "{{ mensagem_erro }}";
-        if (mensagemErro) {
-            Swal.fire({
-                title: 'Erro!',
-                text: mensagemErro,
-                icon: 'error',
-                confirmButtonText: 'Tentar Novamente'
-            });
-        }
-
-        const mensagemSucesso = "{{ mensagem_sucesso }}";
-        if (mensagemSucesso) {
-            Swal.fire({
-                title: 'Sucesso!',
-                text: mensagemSucesso,
-                icon: 'success',
-                confirmButtonText: 'Ok'
-            });
-        }
     </script>
 
 </body>
