@@ -44,7 +44,7 @@ def login():
 
         # Conexão com o banco
         connection = mysql.connector.connect(**config)
-        cursor = connection.cursor()
+        cursor = connection.cursor(dictionary=True)
 
         try:
             # Consulta na tabela de clientes
@@ -64,10 +64,13 @@ def login():
 
             if usuarioBarbeiro:
                 session['user_logged_in'] = True
-                return redirect(url_for('painelBarbeiro'))
+                session['barbeiro_id'] = usuarioBarbeiro['id']  # Salva o ID na sessão
+
+                # Verifica se a requisição veio de AJAX (frontend esperando JSON)
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({'status': 'success', 'message': 'Login realizado com sucesso!', 'barbeiro_id': usuarioBarbeiro['id']})
             
-            # Se nenhum usuário foi encontrado
-            return render_template('login.html', mensagem_erro="Usuário ou senha inválidos!")
+            return redirect(url_for('painelBarbeiro'))
         
         except Exception as e:
             return f"Erro ao acessar banco de dados: {e}"
@@ -193,6 +196,7 @@ def cadastrar():
 def painelCliente():
     return render_template('painelCliente.html')
 
+
 #Rota de Barbearia selecionada
 @app.route('/get_barbers', methods=['GET'])
 def get_barbers():
@@ -209,6 +213,7 @@ def get_barbers():
         cursor.close()
         connection.close()
 
+#Rota de agendamento
 @app.route('/confirm_agd', methods=['POST'])
 def confirm_agd():
     try:
@@ -278,20 +283,25 @@ def confirm_agd():
             connection.close()
             
 
-#Rota de agendamentos do barbeiro
+#Rota de busca de agendamentos
 @app.route('/get_agendamentos', methods=['GET'])
 def get_agendamentos():
     try:
-        barbeiro_id = request.args.get('barbeiro_id')
+        # Obtendo os parâmetros corretamente
+        barbeiro_id = request.args.get('barbeiro_id', type=int)
         data = request.args.get('data')
 
-         # Adicione prints para verificar os parâmetros recebidos
-        print("barbeiro_id:", barbeiro_id)
-        print("data:", data)
+        # Debugging: verificar informações recebidas
+        print("Barbeiro ID:", barbeiro_id)
+        print("Data:", data)
+        
+        # Debugging: verificar parâmetros recebidos
+        print("Parâmetros recebidos:", request.args.to_dict())
 
         if not barbeiro_id or not data:
             return jsonify({'status': 'error', 'message': 'Barbeiro ID e Data são obrigatórios!'}), 400
 
+        # Conectando ao banco
         connection = mysql.connector.connect(**config)
         cursor = connection.cursor(dictionary=True)
 
@@ -317,6 +327,13 @@ def get_agendamentos():
         print("Erro Geral:", e)
         return jsonify({'status': 'error', 'message': f'Erro inesperado: {e}'}), 500
 
+
+#Rota para recuperar o barbeiro_id
+@app.route('/get_barbeiro_id', methods=['GET'])
+def get_barbeiro_id():
+    if 'barbeiro_id' in session:
+        return jsonify({'barbeiro_id': session['barbeiro_id']})
+    return jsonify({'barbeiro_id': None}), 401
 
 
 #Rota de busca de cliente

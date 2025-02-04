@@ -183,57 +183,79 @@
             }
         }
 
-        // Função para renderizar as opções de horário
+        function getBarberId() {
+            return fetch('/get_barbeiro_id')
+                .then(response => response.json())
+                .then(data => data.barbeiro_id)
+                .catch(() => null);
+        }
+
+        // Exemplo de uso dentro da sua função renderTimeOptions:
         function renderTimeOptions() {
+            console.log("Chamando renderTimeOptions...");
             timeOptions.innerHTML = ''; // Limpa os horários antes de renderizar
 
-            const selectedDateFormatted = formatDateForAPI(selectedDate); // Formata a data para o formato correto (YYYY-MM-DD)
-
-            // Requisição AJAX para obter os horários agendados
-            $.ajax({
-                url: '/get_agendamentos',
-                method: 'GET',
-                data: { data: selectedDateFormatted }, // Envia a data para a rota do backend
-                success: function (response) {
-                    if (response.status === 'success') {
-                        const agendamentos = response.agendamentos; // Lista de objetos { hora, cliente_id }
-
-                        const allTimes = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
-                            '18:00', '19:00', '20:00', '21:00', '22:00'
-                        ];
-
-                        // Exibe os horários, desabilitando os já agendados e adicionando o evento de clique para buscar o cliente
-                        allTimes.forEach(time => {
-                            const timeButton = document.createElement('button');
-                            timeButton.innerText = time;
-                            timeButton.className = 'btn btn-outline-primary';
-
-                            const agendamento = agendamentos.find(a => a.hora === time);
-
-                            if (agendamento) {
-                                timeButton.disabled = false; // Mantém o botão clicável
-                                timeButton.classList.add('btn-warning'); // Destaca como horário agendado
-                                timeButton.addEventListener('click', () => {
-                                    selectedTime = time;
-                                    fetchCustomerInfo(agendamento.cliente_id); // Busca os dados do cliente
-                                });
-                            } else {
-                                timeButton.disabled = true; // Bloqueia horários sem agendamento
-                            }
-
-                            timeOptions.appendChild(timeButton);
-                        });
-                    } else {
-                        Swal.fire('Erro', response.message, 'error');
-                    }
-                },
-                error: function () {
-                    Swal.fire('Erro', 'Não foi possível carregar os horários agendados.', 'error');
+            const selectedDateFormatted = formatDateForAPI(selectedDate);
+            console.log("Data formatada:", selectedDateFormatted);
+           
+            console.log("Testando getBarberId()...");
+            console.log(getBarberId()); // Verificar se está retornando algo válido
+            getBarberId().then(barbeiro_id => {
+                console.log("Barbeiro ID recebido:", barbeiro_id);
+                if (!barbeiro_id) {
+                    Swal.fire('Erro', 'Barbeiro não identificado!', 'error');
+                    return;
                 }
+
+                $.ajax({
+                    url: '/get_agendamentos',
+                    method: 'GET',
+                    data: { barbeiro_id: barbeiro_id, data: selectedDateFormatted },
+                    success: function (response) {
+                        if (response.status === 'success') {
+                            const agendamentos = response.agendamentos;
+
+                            const allTimes = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
+                                '18:00', '19:00', '20:00', '21:00', '22:00'];
+
+                            allTimes.forEach(time => {
+                                const timeButton = document.createElement('button');
+                                timeButton.innerText = time;
+                                timeButton.className = 'btn btn-outline-primary';
+
+                                const agendamento = agendamentos.find(a => a.horario_agd === time);
+
+                                if (agendamento) {
+                                    timeButton.disabled = true; // Bloqueia horários já agendados
+                                    timeButton.classList.add('btn-warning'); // Destaca como horário agendado
+                                } else {
+                                    timeButton.disabled = false;
+                                    timeButton.addEventListener('click', () => {
+                                        selectedTime = time;
+                                        fetchCustomerInfo(agendamento.cliente_id);
+                                    });
+                                }
+
+                                timeOptions.appendChild(timeButton);
+                            });
+                        } else {
+                            Swal.fire('Erro', response.message, 'error');
+                        }
+                    },
+                    error: function () {
+                        Swal.fire('Erro', 'Não foi possível carregar os horários agendados.', 'error');
+                    }
+                });
             });
         }
 
-        
+
+        // Função fictícia para obter o ID do barbeiro (substitua pela lógica correta)
+        function getBarberId() {
+            return document.getElementById('barbeiro_id')?.value || null;
+        }
+
+
 
         // Função para buscar informações do cliente pelo ID
         function fetchCustomerInfo(cliente_id) {
