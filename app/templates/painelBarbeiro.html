@@ -183,61 +183,95 @@
             }
         }
 
-        function getBarberId() {
-            return fetch('/get_barbeiro_id')
+        // Função para fazer login do barbeiro
+        function loginBarbeiro(email, senha) {
+            fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email: email, senha: senha }),
+            })
                 .then(response => response.json())
-                .then(data => data.barbeiro_id)
-                .catch(() => null);
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Armazena o barbeiro_id no sessionStorage
+                        sessionStorage.setItem('barbeiro_id', data.barbeiro_id);
+                        console.log("Barbeiro ID armazenado no sessionStorage:", data.barbeiro_id);
+                        // Redireciona ou faz algo após o login
+                    } else {
+                        console.error("Erro no login:", data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error("Erro ao fazer login:", error);
+                });
         }
 
-        // Exemplo de uso dentro da sua função renderTimeOptions:
+        // Função para renderizar os horários disponíveis
+        function getBarberId() {
+            console.log("Executando getBarberId()...");
+
+            return new Promise((resolve, reject) => {
+                const barberId = sessionStorage.getItem('barbeiro_id');
+                console.log("Valor no sessionStorage:", barberId);
+
+                if (barberId) {
+                    console.log("Resolvendo com ID do sessionStorage:", barberId);
+                    resolve(barberId); // Retorna o ID salvo no navegador
+                } else {
+                    console.log("Buscando ID no backend...");
+                    fetch('/get_barbeiro_id') // Faz requisição para o backend
+                        .then(response => {
+                            console.log("Resposta recebida do backend:", response);
+                            return response.json();
+                        })
+                        .then(data => {
+                            console.log("Dados convertidos:", data);
+                            if (data.barbeiro_id) {
+                                sessionStorage.setItem('barbeiro_id', data.barbeiro_id); // Salva no sessionStorage
+                                console.log("Resolvendo com ID do backend:", data.barbeiro_id);
+                                resolve(data.barbeiro_id);
+                            } else {
+                                console.error("Erro: Barbeiro não autenticado!");
+                                reject('Barbeiro não autenticado');
+                            }
+                        })
+                        .catch(error => {
+                            console.error("Erro ao buscar ID no backend:", error);
+                            reject(error);
+                        });
+                }
+            });
+        }
+
+
+
+
+        
+        // Função para renderizar os horários disponíveis
         function renderTimeOptions() {
             console.log("Chamando renderTimeOptions...");
-            timeOptions.innerHTML = ''; // Limpa os horários antes de renderizar
 
             const selectedDateFormatted = formatDateForAPI(selectedDate);
             console.log("Data formatada:", selectedDateFormatted);
-           
-            console.log("Testando getBarberId()...");
-            console.log(getBarberId()); // Verificar se está retornando algo válido
+
             getBarberId().then(barbeiro_id => {
-                console.log("Barbeiro ID recebido:", barbeiro_id);
                 if (!barbeiro_id) {
-                    Swal.fire('Erro', 'Barbeiro não identificado!', 'error');
+                    Swal.fire('Erro', 'Barbeiro não autenticado!', 'error');
                     return;
                 }
+
+                console.log("Barbeiro ID recebido:", barbeiro_id);
 
                 $.ajax({
                     url: '/get_agendamentos',
                     method: 'GET',
                     data: { barbeiro_id: barbeiro_id, data: selectedDateFormatted },
                     success: function (response) {
+                        console.log("Resposta da API:", response);
                         if (response.status === 'success') {
-                            const agendamentos = response.agendamentos;
-
-                            const allTimes = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
-                                '18:00', '19:00', '20:00', '21:00', '22:00'];
-
-                            allTimes.forEach(time => {
-                                const timeButton = document.createElement('button');
-                                timeButton.innerText = time;
-                                timeButton.className = 'btn btn-outline-primary';
-
-                                const agendamento = agendamentos.find(a => a.horario_agd === time);
-
-                                if (agendamento) {
-                                    timeButton.disabled = true; // Bloqueia horários já agendados
-                                    timeButton.classList.add('btn-warning'); // Destaca como horário agendado
-                                } else {
-                                    timeButton.disabled = false;
-                                    timeButton.addEventListener('click', () => {
-                                        selectedTime = time;
-                                        fetchCustomerInfo(agendamento.cliente_id);
-                                    });
-                                }
-
-                                timeOptions.appendChild(timeButton);
-                            });
+                            // Renderizar horários aqui
                         } else {
                             Swal.fire('Erro', response.message, 'error');
                         }
@@ -246,42 +280,36 @@
                         Swal.fire('Erro', 'Não foi possível carregar os horários agendados.', 'error');
                     }
                 });
+            }).catch(error => {
+                console.error("Erro em renderTimeOptions:", error);
+                Swal.fire('Erro', 'Falha ao obter agendamentos.', 'error');
             });
         }
 
+        // Função para confirmar o agendamentos
+        function confirmarAgendamento(cliente_id, dataSelecionada, horario_agd) {
+            console.log("Enviando agendamento:", { cliente_id, data: dataSelecionada, horario_agd });
 
-        // Função fictícia para obter o ID do barbeiro (substitua pela lógica correta)
-        function getBarberId() {
-            return document.getElementById('barbeiro_id')?.value || null;
-        }
-
-
-
-        // Função para buscar informações do cliente pelo ID
-        function fetchCustomerInfo(cliente_id) {
             $.ajax({
-                url: '/get_cliente', // Rota no backend para obter os dados do cliente
-                method: 'GET',
-                data: { cliente_id: cliente_id }, // Envia o ID do cliente
+                url: '/confirm_agd',
+                method: 'POST',
+                contentType: 'application/json',  // 🔥 Define JSON no cabeçalho
+                data: JSON.stringify({
+                    cliente_id: cliente_id,
+                    data_agendamento: dataSelecionada,
+                    horario_agd: horario_agd
+                }),
                 success: function (response) {
-                    if (response.status === 'success') {
-                        // Preenche os campos do modal com os dados do cliente
-                        $('#customerName').val(response.data.nome);  // Alterado para 'nome'
-                        $('#customerPhone').val(response.data.telefone);  // Alterado para 'telefone'
-                        $('#customerEmail').val(response.data.email);
-
-
-                        // Exibe o modal com as informações do cliente
-                        $('#customerInfoModal').modal('show');
-                    } else {
-                        Swal.fire('Erro', response.message, 'error');
-                    }
+                    Swal.fire('Sucesso', 'Agendamento confirmado!', 'success');
                 },
-                error: function () {
-                    Swal.fire('Erro', 'Não foi possível carregar as informações do cliente.', 'error');
+                error: function (xhr) {
+                    console.error("Erro ao agendar:", xhr.responseText);
+                    Swal.fire('Erro', 'Falha ao confirmar o agendamento.', 'error');
                 }
             });
+
         }
+
 
         // Função para formatar a data corretamente (YYYY-MM-DD)
         function formatDateForAPI(date) {

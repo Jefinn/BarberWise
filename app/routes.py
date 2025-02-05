@@ -63,14 +63,15 @@ def login():
             usuarioBarbeiro = cursor.fetchone()
 
             if usuarioBarbeiro:
-                session['user_logged_in'] = True
-                session['barbeiro_id'] = usuarioBarbeiro['id']  # Salva o ID na sessão
+                 session['barbeiro_id'] = usuarioBarbeiro['id']  # 🔥 ID salvo ANTES do redirect
+                 session['user_logged_in'] = True
+                 return redirect(url_for('painelBarbeiro'))
+                 return jsonify({'status': 'success', 'message': 'Login realizado!', 'barbeiro_id': usuarioBarbeiro['id']})
 
-                # Verifica se a requisição veio de AJAX (frontend esperando JSON)
-                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                    return jsonify({'status': 'success', 'message': 'Login realizado com sucesso!', 'barbeiro_id': usuarioBarbeiro['id']})
+            else:
+                return jsonify({'status': 'error', 'message': 'Credenciais inválidas'}), 401
             
-            return redirect(url_for('painelBarbeiro'))
+            #return redirect(url_for('painelBarbeiro'))
         
         except Exception as e:
             return f"Erro ao acessar banco de dados: {e}"
@@ -217,15 +218,19 @@ def get_barbers():
 @app.route('/confirm_agd', methods=['POST'])
 def confirm_agd():
     try:
-        cliente_id = request.form.get('cliente_id')
-        data = request.form.get('data')
-        horario_agd = request.form.get('horario_agd')
+        if not request.is_json:
+            return jsonify({'status': 'error', 'message': 'Content-Type deve ser application/json'}), 415
 
-        print(f"Recebido - cliente_id: {cliente_id}, data: {data}, horario_agd: {horario_agd}")
+        data = request.get_json()
+        cliente_id = data.get('cliente_id')
+        data_agendamento = data.get('data_agendamento')
+        horario_agd = data.get('horario_agd')
 
-        if not cliente_id or not data or not horario_agd:
-            print("Dados incompletos!")
+        print(f"Recebido - cliente_id: {cliente_id}, data: {data_agendamento}, horario_agd: {horario_agd}")
+
+        if not cliente_id or not data_agendamento or not horario_agd:
             return jsonify({'status': 'error', 'message': 'Dados incompletos!'}), 400
+
 
         # Verificar se cliente_id é um número inteiro válido
         if not cliente_id.isdigit():
@@ -329,11 +334,12 @@ def get_agendamentos():
 
 
 #Rota para recuperar o barbeiro_id
-@app.route('/get_barbeiro_id', methods=['GET'])
+@app.route('/get_barbeiro_id')
 def get_barbeiro_id():
     if 'barbeiro_id' in session:
         return jsonify({'barbeiro_id': session['barbeiro_id']})
-    return jsonify({'barbeiro_id': None}), 401
+    else:
+        return jsonify({'barbeiro_id': None}), 401
 
 
 #Rota de busca de cliente
