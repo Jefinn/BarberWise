@@ -102,7 +102,7 @@
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="timeModalLabel">Selecione um horário</h5>
+                        <h5 class="modal-title" id="timeModalLabel">Horários Marcados</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
@@ -181,6 +181,34 @@
 
                 calendarDays.appendChild(dayElement);
             }
+        }
+
+
+        // Função para buscar os dias já agendados do barbeiro
+        function getBookedDates() {
+            getBarberId().then(barbeiro_id => {
+                if (!barbeiro_id) {
+                    console.error("Barbeiro não autenticado!");
+                    return;
+                }
+
+                $.ajax({
+                    url: '/get_booked_dates',
+                    method: 'GET',
+                    data: { barbeiro_id: barbeiro_id },
+                    success: function (response) {
+                        if (response.status === 'success') {
+                            bookedDates = response.dates; // Exemplo de retorno: ["2025-02-10", "2025-02-15"]
+                            renderCalendar(); // Atualiza o calendário após carregar as datas
+                        } else {
+                            console.error("Erro ao buscar datas agendadas:", response.message);
+                        }
+                    },
+                    error: function () {
+                        console.error("Erro ao carregar datas agendadas.");
+                    }
+                });
+            });
         }
 
         // Função para fazer login do barbeiro
@@ -293,7 +321,7 @@
             $.ajax({
                 url: '/confirm_agd',
                 method: 'POST',
-                contentType: 'application/json',  // 🔥 Define JSON no cabeçalho
+                contentType: 'application/json', 
                 data: JSON.stringify({
                     cliente_id: cliente_id,
                     data_agendamento: dataSelecionada,
@@ -337,6 +365,170 @@
 
         // Renderiza o calendário inicial
         renderCalendar();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        // Função para buscar agendamentos do mês atual
+        function fetchAppointmentsForMonth(year, month) {
+            const barbeiro_id = sessionStorage.getItem('barbeiro_id');
+            if (!barbeiro_id) {
+                console.error("Barbeiro não autenticado!");
+                return;
+            }
+
+            const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+            const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${new Date(year, month + 1, 0).getDate()}`;
+
+            $.ajax({
+                url: '/get_agendamentos',
+                method: 'GET',
+                data: { barbeiro_id: barbeiro_id, start_date: startDate, end_date: endDate },
+                success: function (response) {
+                    if (response.status === 'success') {
+                        highlightDaysWithAppointments(response.agendamentos);
+                    } else {
+                        console.error("Erro ao buscar agendamentos:", response.message);
+                    }
+                },
+                error: function () {
+                    console.error("Erro ao buscar agendamentos.");
+                }
+            });
+        }
+
+            // Função para destacar os dias com agendamentos
+            function highlightDaysWithAppointments(agendamentos) {
+                const daysWithAppointments = new Set();
+                agendamentos.forEach(agendamento => {
+                    const date = new Date(agendamento.data);
+                    daysWithAppointments.add(date.getDate());
+                });
+
+                document.querySelectorAll('.day').forEach(day => {
+                    if (daysWithAppointments.has(Number(day.innerText))) {
+                        day.classList.add('has-appointment');
+                    }
+                });
+            }
+
+            // Chamada ao renderizar o calendário
+            function renderCalendar() {
+                calendarDays.innerHTML = '';
+                const month = date.getMonth();
+                const year = date.getFullYear();
+                monthYear.innerText = `${months[month]} ${year}`;
+
+                const firstDay = new Date(year, month, 1).getDay();
+                const lastDate = new Date(year, month + 1, 0).getDate();
+
+                // Adiciona dias vazios no início
+                for (let i = 0; i < (firstDay || 7) - 1; i++) {
+                    calendarDays.innerHTML += `<div class="empty"></div>`;
+                }
+
+                // Adiciona os dias do mês
+                for (let i = 1; i <= lastDate; i++) {
+                    const dayElement = document.createElement('div');
+                    dayElement.className = 'day';
+                    dayElement.innerText = i;
+
+                    if (selectedDate === `${i}/${month + 1}/${year}`) {
+                        dayElement.classList.add('selected');
+                    }
+
+                    dayElement.addEventListener('click', function () {
+                        selectedDate = `${i}/${month + 1}/${year}`;
+                        document.querySelectorAll('.day').forEach(day => day.classList.remove('selected'));
+                        dayElement.classList.add('selected');
+                        renderTimeOptions(); // Mostra os horários disponíveis
+                        timeModal.show(); // Abre o modal de horários
+                    });
+
+                    calendarDays.appendChild(dayElement);
+                }
+
+                // Busca agendamentos para o mês atual
+                fetchAppointmentsForMonth(year, month);
+}
+
+
+//MUDANÇA NA LÓGICA AQUI
+
+
+            function renderTimeOptions() {
+                console.log("Chamando renderTimeOptions...");
+
+                const selectedDateFormatted = formatDateForAPI(selectedDate);
+                console.log("Data formatada:", selectedDateFormatted);
+
+                 
+
+                getBarberId().then(barbeiro_id => {
+                    if (!barbeiro_id) {
+                        Swal.fire('Erro', 'Barbeiro não autenticado!', 'error');
+                        return;
+                    }
+
+                    console.log("Barbeiro ID recebido:", barbeiro_id);
+
+                    
+
+                    $.ajax({
+                        url: '/get_agendamentos',
+                        method: 'GET',
+                        data: { barbeiro_id: barbeiro_id, data: selectedDateFormatted },
+                        success: function (response) {
+                            console.log("Resposta da API:", response);
+                            if (response.status === 'success') {
+                                timeOptions.innerHTML = ''; // Limpa os horários anteriores
+
+                                response.agendamentos.forEach(agendamento => {
+                                    const timeButton = document.createElement('button');
+                                    timeButton.className = 'btn btn-outline-primary';
+                                    timeButton.innerText = agendamento.horario_agd;
+                                    timeButton.addEventListener('click', () => {
+                                        selectedTime = agendamento.horario_agd;
+                                        selectedCustomer = agendamento;
+                                        showCustomerInfo(agendamento); // Exibe as informações do cliente
+                                    });
+                                    timeOptions.appendChild(timeButton);
+                                });
+                            } else {
+                                Swal.fire('Erro', response.message, 'error');
+                            }
+                        },
+                        error: function () {
+                            Swal.fire('Erro', 'Não foi possível carregar os horários agendados.', 'error');
+                        }
+                    });
+                }).catch(error => {
+                    console.error("Erro em renderTimeOptions:", error);
+                    Swal.fire('Erro', 'Falha ao obter agendamentos.', 'error');
+                });
+            }
+
+            
+
+            // Função para exibir as informações do cliente
+            function showCustomerInfo(agendamento) {
+                document.getElementById('customerName').value = agendamento.cliente_nome;
+                document.getElementById('customerPhone').value = agendamento.telefone;
+                document.getElementById('customerEmail').value = agendamento.email;
+                customerInfoModal.show(); // Abre o modal de informações do cliente
+            }
     </script>
 
 

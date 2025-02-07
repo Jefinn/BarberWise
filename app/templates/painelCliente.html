@@ -211,11 +211,13 @@
                 $.ajax({
                     url: '/confirm_agd',  // Chama a rota Flask
                     method: 'POST',
-                    data: {
+                    contentType: 'application/json',  // Define que o conteúdo é JSON
+                    data: JSON.stringify({  // Envia os dados como JSON
                         cliente_id: clienteid,
                         data: formattedDate,  // Envia a data no formato correto
-                        horario_agd: selectedTime  // Envia o horário selecionado
-                    },
+                        horario_agd: selectedTime,  // Envia o horário selecionado
+                        barbeiro_id: $('#barberSelect').val() // Obtém o ID do barbeiro selecionado
+                    }),
                     success: function (response) {
                         console.log('Resposta do servidor:', response);
                         alert(response.message);
@@ -237,6 +239,7 @@
                 alert('Selecione um horário antes de confirmar!');
             }
         });
+
 
 
         // Função para carregar barbeiros

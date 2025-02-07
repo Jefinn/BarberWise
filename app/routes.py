@@ -2,7 +2,8 @@ from app import app
 from flask import Flask, render_template, request, url_for, redirect, session, jsonify # type: ignore 
 from functools import wraps
 import mysql.connector # type: ignore
-from datetime import datetime
+from datetime import datetime, timedelta
+import json
 
 # Configurações da conexão
 config = {
@@ -66,7 +67,7 @@ def login():
                  session['barbeiro_id'] = usuarioBarbeiro['id']  # 🔥 ID salvo ANTES do redirect
                  session['user_logged_in'] = True
                  return redirect(url_for('painelBarbeiro'))
-                 return jsonify({'status': 'success', 'message': 'Login realizado!', 'barbeiro_id': usuarioBarbeiro['id']})
+
 
             else:
                 return jsonify({'status': 'error', 'message': 'Credenciais inválidas'}), 401
@@ -223,32 +224,28 @@ def confirm_agd():
 
         data = request.get_json()
         cliente_id = data.get('cliente_id')
-        data_agendamento = data.get('data_agendamento')
+        data_agendamento = data.get('data')
         horario_agd = data.get('horario_agd')
+        barbeiro_id = data.get('barbeiro_id')  # Obtém o ID do barbeiro
 
-        print(f"Recebido - cliente_id: {cliente_id}, data: {data_agendamento}, horario_agd: {horario_agd}")
+        print(f"Recebido - cliente_id: {cliente_id}, data: {data_agendamento}, horario_agd: {horario_agd}, barbeiro_id: {barbeiro_id}")
 
-        if not cliente_id or not data_agendamento or not horario_agd:
+        if not cliente_id or not data_agendamento or not horario_agd or not barbeiro_id:
             return jsonify({'status': 'error', 'message': 'Dados incompletos!'}), 400
-
 
         # Verificar se cliente_id é um número inteiro válido
         if not cliente_id.isdigit():
-            print("cliente_id inválido!")
             return jsonify({'status': 'error', 'message': 'cliente_id inválido!'}), 400
         cliente_id = int(cliente_id)
 
         try:
-            data = datetime.strptime(data, '%Y-%m-%d').strftime('%Y-%m-%d')
+            data_agendamento = datetime.strptime(data_agendamento, '%Y-%m-%d').strftime('%Y-%m-%d')
         except ValueError:
-            print("Formato de data inválido!")
             return jsonify({'status': 'error', 'message': 'Formato de data inválido! Use YYYY-MM-DD.'}), 400
 
         try:
             horario_agd = datetime.strptime(horario_agd, '%H:%M').strftime('%H:%M:%S')
-            print(f"Formato de horário convertido: {horario_agd}")
         except ValueError:
-            print("Formato de horário inválido!")
             return jsonify({'status': 'error', 'message': 'Formato de horario_agd inválido! Use HH:MM.'}), 400
 
         connection = mysql.connector.connect(**config)
@@ -259,15 +256,20 @@ def confirm_agd():
         if not cursor.fetchone():
             return jsonify({'status': 'error', 'message': 'Cliente não encontrado!'}), 400
 
+        # Verificar se o barbeiro existe
+        cursor.execute("SELECT 1 FROM barbeiro WHERE id = %s", (barbeiro_id,))
+        if not cursor.fetchone():
+            return jsonify({'status': 'error', 'message': 'Barbeiro não encontrado!'}), 400
+
         # Verifica se o horário já está agendado para a data
-        cursor.execute("SELECT 1 FROM agendamentos_barberwise WHERE data = %s AND horario_agd = %s", (data, horario_agd))
+        cursor.execute("SELECT 1 FROM agendamentos_barberwise WHERE data = %s AND horario_agd = %s", (data_agendamento, horario_agd))
         if cursor.fetchone():
             return jsonify({'status': 'error', 'message': 'Horário já está agendado!'}), 400
 
         # Inserir o novo agendamento, caso o horário esteja livre
         cursor.execute(
-            "INSERT INTO agendamentos_barberwise (cliente_id, data, horario_agd) VALUES (%s, %s, %s)",
-            (cliente_id, data, horario_agd)
+            "INSERT INTO agendamentos_barberwise (cliente_id, data, horario_agd, barbeiro_id) VALUES (%s, %s, %s, %s)",
+            (cliente_id, data_agendamento, horario_agd, barbeiro_id)
         )
         connection.commit()
 
@@ -286,9 +288,16 @@ def confirm_agd():
             cursor.close()
         if 'connection' in locals():
             connection.close()
-            
 
-#Rota de busca de agendamentos
+
+
+# Função para converter objetos datetime e timedelta para strings
+def convert_to_serializable(obj):
+    if isinstance(obj, (datetime, timedelta)):
+        return str(obj)
+    raise TypeError(f"Type {type(obj)} not serializable")
+
+# Rota de busca de agendamentos
 @app.route('/get_agendamentos', methods=['GET'])
 def get_agendamentos():
     try:
@@ -323,7 +332,10 @@ def get_agendamentos():
         cursor.close()
         connection.close()
 
-        return jsonify({'status': 'success', 'agendamentos': agendamentos})
+        # Convertendo objetos datetime e timedelta para strings
+        agendamentos_serializable = json.loads(json.dumps(agendamentos, default=convert_to_serializable))
+
+        return jsonify({'status': 'success', 'agendamentos': agendamentos_serializable})
 
     except mysql.connector.Error as err:
         print("Erro MySQL:", err)
@@ -331,16 +343,15 @@ def get_agendamentos():
     except Exception as e:
         print("Erro Geral:", e)
         return jsonify({'status': 'error', 'message': f'Erro inesperado: {e}'}), 500
+    
 
-
-#Rota para recuperar o barbeiro_id
-@app.route('/get_barbeiro_id')
+@app.route('/get_barbeiro_id', methods=['GET'])
 def get_barbeiro_id():
     if 'barbeiro_id' in session:
         return jsonify({'barbeiro_id': session['barbeiro_id']})
     else:
-        return jsonify({'barbeiro_id': None}), 401
-
+        return jsonify({'error': 'Barbeiro ID não encontrado na sessão'}), 404
+    
 
 #Rota de busca de cliente
 @app.route('/get_cliente', methods=['GET'])
